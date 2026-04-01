@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Interview Coach</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    header { background: #1e293b; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid #334155; }
+    header h1 { font-size: 1.5rem; color: #38bdf8; }
+    .badge { background: #0ea5e9; color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; }
+    main { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #334155; }
+    .card h2 { color: #38bdf8; margin-bottom: 1rem; font-size: 1.1rem; }
+    select, input, textarea { width: 100%; padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 0.95rem; margin-bottom: 0.8rem; }
+    button { background: #0ea5e9; color: #fff; border: none; padding: 0.7rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
+    button:hover { background: #0284c7; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    #response-box { background: #0f172a; border-radius: 8px; padding: 1rem; min-height: 80px; border: 1px solid #334155; white-space: pre-wrap; line-height: 1.6; }
+    .audio-controls { margin-top: 1rem; }
+    audio { width: 100%; margin-top: 0.5rem; }
+    .score-bar { background: #334155; border-radius: 999px; height: 10px; margin-top: 0.5rem; overflow: hidden; }
+    .score-fill { height: 100%; background: linear-gradient(90deg, #0ea5e9, #38bdf8); border-radius: 999px; transition: width 0.5s; }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+    .metric { background: #0f172a; border-radius: 8px; padding: 0.8rem; text-align: center; border: 1px solid #334155; }
+    .metric .val { font-size: 1.6rem; font-weight: bold; color: #38bdf8; }
+    .metric .lbl { font-size: 0.75rem; color: #94a3b8; margin-top: 0.2rem; }
+    footer { text-align: center; padding: 2rem; color: #475569; font-size: 0.85rem; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid #475569; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#0ea5e9"/><path d="M10 22l6-12 6 12" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="11" r="2" fill="#fff"/></svg>
+    <h1>AI Interview Coach</h1>
+    <span class="badge">Powered by Gemini</span>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Session Setup</h2>
+      <label>Job Role</label>
+      <input type="text" id="role" placeholder="e.g. Software Engineer, Data Scientist" value="Software Engineer" />
+      <label>Experience Level</label>
+      <select id="level">
+        <option>Fresher</option>
+        <option>Junior (1-3 years)</option>
+        <option selected>Mid-level (3-5 years)</option>
+        <option>Senior (5+ years)</option>
+      </select>
+      <label>Interview Type</label>
+      <select id="type">
+        <option>Technical</option>
+        <option>Behavioral</option>
+        <option selected>Mixed</option>
+        <option>System Design</option>
+      </select>
+      <button onclick="startSession()">Start Interview Session</button>
+    </div>
+
+    <div class="card" id="interview-card">
+      <h2>Interview Question</h2>
+      <div id="question-box" style="font-size:1.1rem; line-height:1.7; min-height:60px; color:#cbd5e1;">Click "Start Interview Session" to begin.</div>
+      <div class="audio-controls">
+        <audio id="question-audio" controls class="hidden"></audio>
+      </div>
+      <div style="margin-top:1rem;">
+        <label>Your Answer</label>
+        <textarea id="answer" rows="5" placeholder="Type your answer here..."></textarea>
+        <button id="submit-btn" onclick="submitAnswer()" disabled>Submit Answer</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="feedback-card">
+      <h2>AI Feedback</h2>
+      <div id="response-box"></div>
+      <div class="metrics" id="metrics">
+        <div class="metric"><div class="val" id="score-relevance">-</div><div class="lbl">Relevance</div></div>
+        <div class="metric"><div class="val" id="score-depth">-</div><div class="lbl">Depth</div></div>
+        <div class="metric"><div class="val" id="score-clarity">-</div><div class="lbl">Clarity</div></div>
+      </div>
+      <button onclick="nextQuestion()" style="margin-top:1rem;">Next Question</button>
+    </div>
+  </main>
+
+  <footer>AI Interview Coach &copy; 2025 &mdash; Built with FastAPI + Gemini + gTTS</footer>
+
+  <script>
+    const API = '';
+    let sessionId = null;
+    let questionCount = 0;
+
+    async function startSession() {
+      const role = document.getElementById('role').value;
+      const level = document.getElementById('level').value;
+      const type = document.getElementById('type').value;
+      document.getElementById('question-box').innerHTML = '<span class="spinner"></span> Generating question...';
+      document.getElementById('submit-btn').disabled = true;
+      try {
+        const res = await fetch(`${API}/start-session`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({role, level, interview_type: type})
+        });
+        const data = await res.json();
+        sessionId = data.session_id;
+        displayQuestion(data.question, data.audio_url);
+      } catch(e) {
+        document.getElementById('question-box').textContent = 'Error: Could not connect to server. Make sure the API is running.';
+      }
+    }
+
+    function displayQuestion(question, audioUrl) {
+      questionCount++;
+      document.getElementById('question-box').textContent = `Q${questionCount}: ${question}`;
+      const audio = document.getElementById('question-audio');
+      if (audioUrl) {
+        audio.src = `${API}${audioUrl}`;
+        audio.classList.remove('hidden');
+        audio.load();
+      }
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('answer').value = '';
+      document.getElementById('feedback-card').classList.add('hidden');
+    }
+
+    async function submitAnswer() {
+      const answer = document.getElementById('answer').value.trim();
+      if (!answer) { alert('Please enter your answer.'); return; }
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('response-box').innerHTML = '<span class="spinner"></span> Analyzing your answer...';
+      document.getElementById('feedback-card').classList.remove('hidden');
+      try {
+        const res = await fetch(`${API}/evaluate`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({session_id: sessionId, answer})
+        });
+        const data = await res.json();
+        document.getElementById('response-box').textContent = data.feedback;
+        document.getElementById('score-relevance').textContent = (data.scores?.relevance ?? '-') + (data.scores ? '/10' : '');
+        document.getElementById('score-depth').textContent = (data.scores?.depth ?? '-') + (data.scores ? '/10' : '');
+        document.getElementById('score-clarity').textContent = (data.scores?.clarity ?? '-') + (data.scores ? '/10' : '');
+      } catch(e) {
+        document.getElementById('response-box').textContent = 'Error: Could not get feedback.';
+      }
+    }
+
+    async function nextQuestion() {
+      document.getElementById('question-box').innerHTML = '<span class="spinner"></span> Generating next question...';
+      document.getElementById('feedback-card').classList.add('hidden');
+      try {
+        const res = await fetch(`${API}/next-question`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({session_id: sessionId})
+        });
+        const data = await res.json();
+        displayQuestion(data.question, data.audio_url);
+      } catch(e) {
+        document.getElementById('question-box').textContent = 'Error: Could not get next question.';
+      }
+    }
+  </script>
+</body>
+</html>

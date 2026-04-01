@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  api:
+    build: .
+    container_name: ai-interview-api
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+    volumes:
+      - audio_cache:/app/audio_cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - interview-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: ai-interview-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - interview-net
+
+volumes:
+  audio_cache:
+    driver: local
+
+networks:
+  interview-net:
+    driver: bridge

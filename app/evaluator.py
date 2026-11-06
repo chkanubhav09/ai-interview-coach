@@ -1,11 +1,10 @@
 # app/evaluator.py
 # Answer scoring engine using Gemini - 4-dimension rubric
 
-import os
 import json
-import google.generativeai as genai
+import os
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+import google.generativeai as genai
 
 EVAL_PROMPT_TEMPLATE = """
 You are an expert technical interviewer evaluating a candidate's answer.
@@ -41,6 +40,10 @@ class AnswerEvaluator:
     """Scores interview answers using Gemini on a 4-dimension rubric."""
 
     def __init__(self):
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+        genai.configure(api_key=api_key)
         self._model = genai.GenerativeModel("gemini-1.5-flash")
 
     async def evaluate(self, question: str, answer: str) -> dict:
@@ -55,12 +58,13 @@ class AnswerEvaluator:
             # Strip markdown code fences if present
             if text.startswith("```"):
                 text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
+                text = text.removeprefix("json")
             scores = json.loads(text)
             return scores
-        except (json.JSONDecodeError, Exception) as e:
-            return self._zero_score(f"Evaluation error: {str(e)}")
+        except json.JSONDecodeError as e:
+            return self._zero_score(f"Evaluation error: could not parse model response ({e})")
+        except Exception as e:  # noqa: BLE001 - any client/API failure becomes a zero score, not a crash
+            return self._zero_score(f"Evaluation error: {type(e).__name__}: {e}")
 
     @staticmethod
     def _zero_score(reason: str) -> dict:

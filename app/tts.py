@@ -1,11 +1,12 @@
 # app/tts.py
 # Text-to-speech module using gTTS
 
+import asyncio
 import base64
 import hashlib
-import os
 import tempfile
 from pathlib import Path
+
 from gtts import gTTS
 
 CACHE_DIR = Path(tempfile.gettempdir()) / "interview_tts_cache"
@@ -34,8 +35,12 @@ class TextToSpeech:
     async def synthesize_b64(self, text: str) -> str:
         """Return base64-encoded MP3 audio string for inline playback."""
         path = await self.synthesize_file(text)
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+
+        def _read():
+            with open(path, "rb") as f:
+                return base64.b64encode(f.read()).decode("utf-8")
+
+        return await asyncio.to_thread(_read)
 
     def clear_cache(self):
         """Remove all cached TTS files."""

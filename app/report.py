@@ -1,10 +1,9 @@
 # app/report.py
 # Session report generator - JSON and HTML export
 
-import json
+import os
 import tempfile
-from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class ReportGenerator:
@@ -13,7 +12,7 @@ class ReportGenerator:
     def __init__(self, session_id: str, scores: list):
         self.session_id = session_id
         self.scores = scores
-        self.generated_at = datetime.utcnow().isoformat() + "Z"
+        self.generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")  # noqa: UP017 - keep Python 3.10 compatibility
 
     def _overall_avg(self) -> float:
         if not self.scores:
@@ -79,6 +78,7 @@ class ReportGenerator:
   </table>
 </body>
 </html>"""
-        tmp = Path(tempfile.mktemp(suffix=".html"))
-        tmp.write_text(html, encoding="utf-8")
-        return str(tmp)
+        fd, tmp_path = tempfile.mkstemp(suffix=".html")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(html)
+        return tmp_path

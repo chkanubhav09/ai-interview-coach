@@ -1,20 +1,19 @@
 # app/main.py
 # FastAPI application - REST + WebSocket routes for AI Interview Coach
 
-import os
 import uuid
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from typing import Optional
 
-from app.interviewer import InterviewAgent
 from app.evaluator import AnswerEvaluator
-from app.tts import TextToSpeech
-from app.session import SessionStore
+from app.interviewer import InterviewAgent
 from app.report import ReportGenerator
+from app.session import SessionStore
+from app.tts import TextToSpeech
 
 app = FastAPI(
     title="AI Interview Coach",
@@ -45,14 +44,19 @@ class SessionStartRequest(BaseModel):
 
 class AnswerRequest(BaseModel):
     answer: str
-    question_index: Optional[int] = None
+    question_index: int | None = None
 
 
 # ---------- Routes ----------
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    with open("frontend/index.html") as f:
-        return f.read()
+    from starlette.concurrency import run_in_threadpool
+
+    def _read():
+        with open("frontend/index.html") as f:
+            return f.read()
+
+    return await run_in_threadpool(_read)
 
 
 @app.post("/session/start")

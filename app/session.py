@@ -1,7 +1,6 @@
 # app/session.py
 # In-memory session store for interview sessions
 
-from typing import Optional
 
 
 class SessionStore:
@@ -20,7 +19,7 @@ class SessionStore:
         self._store[session_id] = session
         return session
 
-    def get(self, session_id: str) -> Optional[dict]:
+    def get(self, session_id: str) -> dict | None:
         return self._store.get(session_id)
 
     def update_idx(self, session_id: str, idx: int):

@@ -2,10 +2,8 @@
 # Gemini multi-turn interview agent
 
 import os
-import google.generativeai as genai
-from typing import Optional
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+import google.generativeai as genai
 
 ROLE_PROMPTS = {
     "Software Engineer": "You are a senior software engineer interviewing a candidate for an SDE role. Focus on DSA, system design, OOP, and coding best practices.",
@@ -29,8 +27,13 @@ class InterviewAgent:
     def __init__(self, role: str = "Software Engineer", difficulty: str = "Mid-level"):
         self.role = role
         self.difficulty = difficulty
-        self.current_question: Optional[str] = None
+        self.current_question: str | None = None
         self._history: list[dict] = []
+
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+        genai.configure(api_key=api_key)
 
         system_prompt = (
             f"{ROLE_PROMPTS.get(role, ROLE_PROMPTS['Software Engineer'])} "
@@ -46,7 +49,7 @@ class InterviewAgent:
         )
         self._chat = self._model.start_chat(history=[])
 
-    async def get_next_question(self, prev_answer: Optional[str] = None) -> str:
+    async def get_next_question(self, prev_answer: str | None = None) -> str:
         """Generate the next interview question."""
         if prev_answer:
             prompt = f"Candidate answered: '{prev_answer}'. Ask the next interview question."
